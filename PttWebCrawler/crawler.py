@@ -20,7 +20,7 @@ VERIFY = True
 if sys.version_info[0] < 3:
     VERIFY = False
     requests.packages.urllib3.disable_warnings()
-
+getMaxPageNum = re.compile(r"\d+")
 
 class PttWebCrawler(object):
 
@@ -59,6 +59,19 @@ class PttWebCrawler(object):
     def parse_articles(self, start, end, board, path='.', timeout=3):
             filename = board + '-' + str(start) + '-' + str(end) + '.json'
             filename = os.path.join(path, filename)
+            if end == -1:
+                resp = requests.get(
+                    url = self.PTT_URL + '/bbs/' + board + '/index.html',
+                    cookies={'over18': '1'}, verify=VERIFY, timeout=timeout
+                )
+                if resp.status_code != 200:
+                    print('invalid url:', resp.url)
+                    return
+                soup = BeautifulSoup(resp.text, 'html.parser')
+                href = soup.find("div", "action-bar").find_all("div")[-1].find_all("a")[1]["href"]
+                r = getMaxPageNum.search(href,pos=href.rfind("/"))
+                if r:end = int(r.group(0)) +1
+
             self.store(filename, u'{"articles": [', 'w')
             for i in range(end-start+1):
                 index = start + i
@@ -208,3 +221,5 @@ class PttWebCrawler(object):
 
 if __name__ == '__main__':
     c = PttWebCrawler()
+    # c = PttWebCrawler(as_lib=True)
+    # f = c.parse_articles(996,-1,'YuanChuang')
